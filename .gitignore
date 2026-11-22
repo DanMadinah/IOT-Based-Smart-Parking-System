@@ -1,0 +1,19 @@
+# Private Wi-Fi & admin credentials (keep config.example.h tracked instead)
+firmware/smart_parking/config.h
+
+# Arduino & PlatformIO build outputs
+*.bin
+*.elf
+*.hex
+*.map
+build/
+.pio/
+
+# OS & editor files
+.DS_Store
+Thumbs.db
+.vscode/
+*.swp
+*.tmp
+__pycache__/
+*.pyc

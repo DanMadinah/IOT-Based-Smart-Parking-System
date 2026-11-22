@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Admin</title>
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+  <main>
+    <h1>Admin panel</h1>
+    <div class="card"><div id="st" class="sub">Loading...</div></div>
+
+    <h2>Revenue (demo)</h2>
+    <div class="card"><div id="rev" class="sub">-</div></div>
+
+    <h2>Security alerts</h2>
+    <div class="card">
+      <div id="al" class="sub">-</div>
+      <ul id="alist"></ul>
+      <button class="r" onclick="go('clearalerts',0)">Clear alerts</button>
+      <button class="a" onclick="go('cleartail',0)">Clear tailgating alarm</button>
+    </div>
+
+    <h2>Gate (manual mode)</h2>
+    <div class="card">
+      <button class="g" onclick="go('manual',1)">Manual mode ON</button>
+      <button onclick="go('manual',0)">Manual mode OFF</button><br>
+      <button class="g" onclick="go('gate',1)">Open gate</button>
+      <button class="r" onclick="go('gate',0)">Close gate</button>
+      <button class="a" onclick="go('approveexit',0)">Approve exit for next car</button>
+      <div class="sub">Open and close only work while manual mode is ON.</div>
+    </div>
+
+    <h2>Demo panel</h2>
+    <div class="card">
+      <button class="g" onclick="go('demo',0)">Run full demo (about 45 s)</button><br>
+      <button class="g" onclick="go('sim',1)">Simulate paid car entering</button><br>
+      <button class="a" onclick="go('sim',2)">Simulate unpaid car at gate</button><br>
+      <button onclick="go('sim',3)">Simulate car leaving</button>
+      <div class="sub">The full demo plays every feature on the real gate, LEDs and buzzer, then puts your counts back. Do not use real cars during it.</div>
+    </div>
+
+    <h2>Lot</h2>
+    <div class="card">
+      <button class="r" onclick="if(confirm('Reset the car count to 0?'))go('reset',0)">Reset car count</button>
+      <button onclick="if(confirm('Clear today statistics?'))go('clearstats',0)">Clear statistics</button><br>
+      <button onclick="go('cap',cap-1)">Capacity -</button>
+      <button onclick="go('cap',cap+1)">Capacity +</button>
+      <span class="sub" id="capt"></span>
+    </div>
+
+    <h2>Entry mode</h2>
+    <div class="card">
+      <button onclick="go('mode',0)">Simple</button>
+      <button onclick="go('mode',1)">Secure (LCD code)</button>
+    </div>
+
+    <h2>Restart</h2>
+    <div class="card">
+      <button class="r" onclick="if(confirm('Restart EVERYTHING to the beginning? This clears the car count, revenue, log, alerts and tickets.'))go('restart',0)">Restart everything</button>
+      <div class="sub">Clears the car count, revenue, log, alerts, tickets and chart.</div>
+    </div>
+
+    <h2>Tools</h2>
+    <div class="card">
+      <button onclick="go('buzz',0)">Test buzzer</button>
+      <button onclick="go('mute',1)">Mute buzzer</button>
+      <button onclick="go('mute',0)">Unmute buzzer</button><br>
+      <a href="/download.csv"><button>Download log (CSV)</button></a>
+    </div>
+
+    <div id="msg">Ready.</div>
+    <p class="sub"><a href="/">Back to dashboard</a></p>
+  </main>
+
+  <script src="js/demo-mock.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>About</title>
+  <link rel="stylesheet" href="css/about.css">
+</head>
+<body>
+  <main>
+    <h1>%TITLE%</h1>
+    <div class="sub">Student: %NAME% &middot; Supervisor: %SUP%</div>
+
+    <div class="card">
+      <b>What it does</b>
+      <ul>
+        <li>Opens the gate only for a car that has paid and confirmed it is at the gate.</li>
+        <li>Lets a car out only when its owner taps I'm exiting on that car's ticket.</li>
+        <li>Counts cars in and out with two IR sensors, and refuses entry when the lot is full.</li>
+        <li>Raises security alerts for unpaid cars, unconfirmed arrivals, repeated wrong codes, refused exits and tailgating.</li>
+        <li>Warns with a buzzer when something is too close to the wall.</li>
+        <li>Shows everything live on this website and on the LCD.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <b>Limits</b>
+      <ul>
+        <li>The website opens only on the ESP32's Wi-Fi.</li>
+        <li>Payment is a demo and uses no real money.</li>
+        <li>The system checks payment, presence and tickets, not which car is at the gate. A number-plate camera is future work.</li>
+      </ul>
+    </div>
+
+    <p><a href="/">Back to the dashboard</a></p>
+  </main>
+  <script src="js/demo-mock.js"></script>
+</body>
+</html>
