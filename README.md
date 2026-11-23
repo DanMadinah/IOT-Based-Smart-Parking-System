@@ -170,8 +170,53 @@ Date, location, Wi-Fi (home router or phone hotspot), number of phones connected
 - The ESP32 web server answers one request at a time, so it suits a few phones, not a crowd.
 
 ## Testing and Lessons Learned
-- [Test plan and results](docs/TESTING.md)
-- [Lessons learned](docs/LESSONS_LEARNED.md)
+# Test Plan and Results
+
+| ID | Scenario | Steps | Expected result | Result (pass/fail, n/n) | Notes |
+|---|---|---|---|---|---|
+| T1 | Paid car enters | Pay, tap "I'm at the gate", drive in | Gate opens, car counted, ticket shows Parked | | |
+| T2 | Unpaid car | Trigger the entry sensor with no ticket | Gate stays shut, red LED blinks, 2 beeps, alert | | |
+| T3 | Paid but no tap | Pay, trigger the entry sensor, do not tap | Reminder, then alert after 8 s | | |
+| T4 | Lot full | Fill the lot, try again | Entry refused, red LED on | | |
+| T5 | Payment when full | Pay while the lot is full | "Lot full" message, no ticket | | |
+| T6 | Reservation expiry | Pay, wait 60 s | Space released, refund message | | |
+| T7 | Cancel | Pay, tap Cancel | Space released at once | | |
+| T8 | Wrong codes (secure mode) | 3 wrong codes | Ticket locked 30 s, LCD shows LOCKED | | |
+| T9 | Ticket cancelled | 6 wrong codes in total | Ticket cancelled, alert, 2-minute payment block | | |
+| T10 | Tailgating | Second car follows a paid car | Gate held open, alarm, alert | | |
+| T11 | Exit with ticket | Tap "I'm exiting", drive out | Gate opens, ticket marked Left, count -1 | | |
+| T12 | Exit without ticket | Trigger the exit sensor with no armed ticket | Gate stays shut, alert | | |
+| T13 | Wall warning | Move a car within 6 cm of a wall sensor | Buzzer sounds | | |
+| T14 | Gate obstruction | Block the gate while it closes | Gate re-opens | | |
+| T15 | Restart persistence | Press EN | Count, statistics and settings remain | | |
+| T16 | Hotspot fallback | Start with a wrong Wi-Fi name | ESP32 starts the DanMadinah-Lot hotspot | | |
+| T17 | Multi-car on one phone | Reserve four cars with different names | Four tickets listed; each exits separately | | |
+
+## Test environment
+Date, location, Wi-Fi (home router or phone hotspot), number of phones connected, ESP32 board and firmware version.
+
+# Lessons Learned
+
+## Hardware
+- **The ESP32 is wider than the breadboard allows.** Only the left-hand pins had a free hole beside them, so all signals were moved to left-side pins.
+- **The servo needs its own 5 V.** Powered from 3.3 V it hummed and stalled. A separate 5 V supply with a common ground fixed it.
+- **The LCD is dim at 3.3 V.** A BSS138 level shifter lets it run at 5 V while the ESP32 stays at 3.3 V.
+- **Ultrasonic Echo signals are 5 V.** The Echo pins are not level-shifted yet; the two spare shifter channels are the planned fix.
+- **IR obstacle sensors are unreliable on dark, shiny or small cars** and react to bright light. Fixes: shade the sensors, aim them level across the lane, tune the dial, add a release delay in software, and use a reflective strip on dark cars.
+- **Loose breadboard wires cause most "software" problems.** Check wires first.
+
+## Software
+- The ESP32 web server answers **one request at a time**. Polling had to be slowed, Wi-Fi sleep turned off, and long delays avoided so the gate loop does not starve the website.
+- Browsers cache old pages: send a no-cache header when the page changes.
+- Arduino requires shared types to be declared before the functions that use them.
+- A security feature needs a **state** (alarm hold), not just a one-off event.
+
+## Deployment
+- A locally hosted website depends on the network. At the live event, a crowded or isolated Wi-Fi caused problems.
+- Next time: bring a dedicated router or use a phone hotspot, reserve a fixed IP for the ESP32, keep the dashboard open on one device, and prepare a screen-recorded backup of the whole flow.
+
+## Next steps
+Real payment gateway, number-plate camera or RFID, HTTPS, an asynchronous web server, permanent log storage, and remote access.
 ## Documentation
 
 - [Hardware & Wiring Guide](docs/WIRING.md)
