@@ -8,6 +8,7 @@
 #include "parking.h"
 #include "demo.h"
 #include "web_api.h"
+#include "firebase_sync.h"
 
 // ---------- Global Objects & State Definitions ----------
 LiquidCrystal_I2C* lcd = nullptr;
@@ -395,4 +396,5 @@ void loop() {
   updateBuzzer();
   checkHealth();
   sampleHistory();
+  syncFirebase();
 }

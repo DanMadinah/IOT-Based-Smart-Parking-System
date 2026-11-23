@@ -19,6 +19,12 @@ constexpr const char* MDNS_HOST = "danmadinah";
 // ---------- Admin Login (username: admin) ----------
 constexpr const char* ADMIN_PASS = "CHANGE_THIS_PASSWORD";
 
+// ---------- Firebase Realtime Database (Cloud Sync for Vercel) ----------
+// Leave empty ("") to run local-only. Example:
+// #define FIREBASE_DB_URL "https://smart-parking-12345-default-rtdb.asia-southeast1.firebasedatabase.app"
+#define FIREBASE_DB_URL ""
+#define FIREBASE_AUTH   ""  // optional legacy DB secret or auth token
+
 // ---------- About Page Metadata ----------
 constexpr const char* PROJECT_TITLE = "Smart Parking System";
 constexpr const char* STUDENT_NAME  = "Muhammad Abdullahi Bukar";

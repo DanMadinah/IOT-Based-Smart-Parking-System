@@ -4,9 +4,12 @@
 #include "hardware.h"
 #include "parking.h"
 
+static String jsonReply(bool ok, const String& msg) {
+  return "{\"ok\":" + String(ok ? "true" : "false") + ",\"msg\":\"" + msg + "\"}";
+}
+
 static void reply(bool ok, String msg) {
-  server.send(200, "application/json",
-              "{\"ok\":" + String(ok ? "true" : "false") + ",\"msg\":\"" + msg + "\"}");
+  server.send(200, "application/json", jsonReply(ok, msg));
 }
 
 static bool adminOk() {
@@ -17,7 +20,7 @@ static bool adminOk() {
   return true;
 }
 
-static String statusJson() {
+String statusJson() {
   int fr = freeSpaces();
   if (fr < 0) fr = 0;
   String w = "[";
@@ -64,14 +67,18 @@ static String statusJson() {
   return j;
 }
 
-static void handleHistory() {
+String historyJson() {
   String j = "{\"max\":" + String(maxCars) + ",\"step\":20,\"h\":[";
   for (int i = 0; i < hCount; i++) {
     j += String(hist[i]);
     if (i < hCount - 1) j += ",";
   }
   j += "]}";
-  server.send(200, "application/json", j);
+  return j;
+}
+
+static void handleHistory() {
+  server.send(200, "application/json", historyJson());
 }
 
 static void handlePay() {
@@ -366,8 +373,7 @@ static void handleAdmin() {
   }
 }
 
-static void handleAlerts() {
-  if (!adminOk()) return;
+String alertsJson() {
   String j = "{\"c\":[";
   for (int i = 0; i < 6; i++) {
     j += String(ac[i]);
@@ -380,7 +386,12 @@ static void handleAlerts() {
     if (i > 0) j += ",";
   }
   j += "]}";
-  server.send(200, "application/json", j);
+  return j;
+}
+
+static void handleAlerts() {
+  if (!adminOk()) return;
+  server.send(200, "application/json", alertsJson());
 }
 
 static void handleCsv() {
@@ -422,6 +433,135 @@ static void handleAbout() {
   p.replace("%NAME%", STUDENT_NAME);
   p.replace("%SUP%", SUPERVISOR);
   server.send(200, "text/html", p);
+}
+
+String allTicketsJson() {
+  String j = "{";
+  bool first = true;
+  for (int i = 0; i < MAXRES; i++) {
+    if (res[i].st == R_NONE || res[i].token.length() == 0) continue;
+    Res& t = res[i];
+    String st = "none";
+    long left = 0, total = 1, lk = 0;
+    bool need = false;
+    if (millis() < t.lockedUntil) lk = (t.lockedUntil - millis()) / 1000 + 1;
+    switch (t.st) {
+      case R_RES:
+        st = "reserved"; total = RESERVE_MS / 1000;
+        left = ((long)RESERVE_MS - (long)(millis() - t.created)) / 1000;
+        break;
+      case R_ARMED:
+        st = "armed"; total = ARM_MS / 1000;
+        left = ((long)ARM_MS - (long)(millis() - t.armedAt)) / 1000;
+        need = secureMode && codeFor == i && code.length() > 0 && millis() - codeAt < CODE_MS;
+        break;
+      case R_ENTER: st = "entering"; break;
+      case R_PARKED: st = "parked"; break;
+      case R_EXARM:
+        st = "exiting"; total = ARM_MS / 1000;
+        left = ((long)ARM_MS - (long)(millis() - t.exArmAt)) / 1000;
+        break;
+      case R_LEFT: st = "left"; break;
+      case R_USED: st = "used"; break;
+      case R_EXP: st = "expired"; break;
+      case R_CANCEL: st = "cancelled"; break;
+      default: break;
+    }
+    if (left < 0) left = 0;
+    if (!first) j += ",";
+    first = false;
+    j += "\"" + t.token + "\":{\"t\":\"" + t.token + "\",\"n\":\"" + t.name +
+         "\",\"ticket\":\"" + ticketName(t.no) + "\",\"state\":\"" + st +
+         "\",\"left\":" + String(left) + ",\"total\":" + String(total) +
+         ",\"locked\":" + String(lk) + ",\"atgate\":" + String(atGateNow() ? "true" : "false") +
+         ",\"needCode\":" + String(need ? "true" : "false") + "}";
+  }
+  j += "}";
+  return j;
+}
+
+String executeRemoteCommand(const String& action, const String& arg1, const String& arg2) {
+  if (action == "pay") {
+    if (freeSpaces() <= 0) return jsonReply(false, "Lot full, try again later");
+    int slot = -1;
+    for (int i = 0; i < MAXRES; i++) if (slotFree(res[i].st)) { slot = i; break; }
+    if (slot < 0) return jsonReply(false, "Too many open tickets");
+    String m = arg1.length() ? arg1 : String("Card");
+    m.replace("\"", "");
+    if (m.length() > 16) m = m.substring(0, 16);
+    ticketNo++; paidTotal++; saveStats();
+    res[slot].st = R_RES; res[slot].no = ticketNo; res[slot].created = millis();
+    res[slot].armedAt = 0; res[slot].exArmAt = 0;
+    res[slot].wrong = 0; res[slot].totalWrong = 0; res[slot].lockLevel = 0; res[slot].lockedUntil = 0;
+    res[slot].ip = 0;
+    String clean = "";
+    for (unsigned int k = 0; k < arg2.length() && clean.length() < 14; k++) {
+      char ch = arg2[k];
+      if (isalnum(ch) || ch == ' ' || ch == '-') clean += ch;
+    }
+    clean.trim();
+    res[slot].name = clean.length() ? clean : String("Car");
+    res[slot].token = String(esp_random(), HEX) + String(esp_random(), HEX);
+    addEvent("Payment RM2 (" + m + ", cloud): " + ticketName(ticketNo) + " " + res[slot].name + " reserved");
+    return "{\"ok\":true,\"token\":\"" + res[slot].token + "\",\"msg\":\"Paid. Space reserved for 1 minute.\"}";
+  }
+  if (action == "arm") {
+    int i = findToken(arg1);
+    if (i < 0) return jsonReply(false, "Unknown ticket");
+    if (res[i].st == R_ARMED) { res[i].armedAt = millis(); return jsonReply(true, "Gate armed. Drive to the entry sensor now."); }
+    if (res[i].st != R_RES) return jsonReply(false, "Ticket is not ready");
+    for (int k = 0; k < MAXRES; k++) if (res[k].st == R_ARMED) return jsonReply(false, "Another driver is at the gate");
+    res[i].st = R_ARMED; res[i].armedAt = millis(); gentleUntil = 0;
+    addEvent("Driver tapped I'm at the gate: " + ticketName(res[i].no));
+    return jsonReply(true, "Gate armed. Drive to the entry sensor now.");
+  }
+  if (action == "cancel") {
+    int i = findToken(arg1);
+    if (i < 0 || (res[i].st != R_RES && res[i].st != R_ARMED)) return jsonReply(false, "Nothing to cancel");
+    res[i].st = R_CANCEL; refundTotal++; saveStats();
+    addEvent("Reservation cancelled (demo refund): " + ticketName(res[i].no));
+    return jsonReply(true, "Cancelled. Payment refunded (demo).");
+  }
+  if (action == "code") {
+    int i = findToken(arg1);
+    if (i < 0) return jsonReply(false, "No valid ticket");
+    Res& t = res[i];
+    if (millis() < t.lockedUntil) return jsonReply(false, "Locked. Try again later");
+    bool codeLive = code.length() > 0 && millis() - codeAt < CODE_MS;
+    if (t.st == R_ARMED && codeFor == i && codeLive && arg2 == code) {
+      codeOk = true; t.wrong = 0;
+      return jsonReply(true, "Code accepted. Drive in.");
+    }
+    return jsonReply(false, "Wrong or expired code");
+  }
+  if (action == "exitarm") {
+    int i = findToken(arg1);
+    if (i < 0) return jsonReply(false, "Unknown ticket");
+    if (res[i].st == R_EXARM) { res[i].exArmAt = millis(); return jsonReply(true, "Exit armed. Drive to the exit sensor now."); }
+    if (res[i].st != R_PARKED) return jsonReply(false, "This car is not parked");
+    for (int k = 0; k < MAXRES; k++) if (res[k].st == R_EXARM) return jsonReply(false, "Another car is leaving");
+    res[i].st = R_EXARM; res[i].exArmAt = millis();
+    addEvent("Driver tapped I'm exiting: " + ticketName(res[i].no) + " (" + res[i].name + ")");
+    return jsonReply(true, "Exit armed. Drive to the exit sensor now.");
+  }
+  if (action == "admin") {
+    int v = arg2.toInt();
+    if (arg1 == "manual") { manualMode = (v == 1); addEvent(manualMode ? "Admin: manual mode ON" : "Admin: manual mode OFF"); return jsonReply(true, manualMode ? "Manual mode on." : "Manual mode off."); }
+    if (arg1 == "gate") { if (!manualMode) return jsonReply(false, "Turn manual mode on first"); pendingGate = (v == 1) ? GATE_OPEN : GATE_CLOSED; return jsonReply(true, v == 1 ? "Opening gate..." : "Closing gate..."); }
+    if (arg1 == "reset") { carCount = 0; saveStats(); addEvent("Admin: car count reset to 0"); return jsonReply(true, "Car count reset to 0"); }
+    if (arg1 == "clearstats") { entriesToday = 0; exitsToday = 0; peakCars = carCount; paidTotal = 0; refundTotal = 0; saveStats(); return jsonReply(true, "Statistics cleared"); }
+    if (arg1 == "clearalerts") { for (int i = 0; i < 6; i++) ac[i] = 0; wrongCodes = 0; alCount = 0; return jsonReply(true, "Alerts cleared"); }
+    if (arg1 == "cleartail") { tailAlarm = false; blinkUntil = 0; return jsonReply(true, "Tailgating alarm cleared"); }
+    if (arg1 == "approveexit") { adminExitUntil = millis() + 30000; return jsonReply(true, "Next car may leave within 30 s"); }
+    if (arg1 == "mode") { secureMode = (v == 1); prefs.putBool("sec", secureMode); return jsonReply(true, secureMode ? "Secure mode on" : "Simple mode on"); }
+    if (arg1 == "mute") { muted = (v == 1); prefs.putBool("mute", muted); return jsonReply(true, muted ? "Buzzer muted" : "Buzzer on"); }
+    if (arg1 == "cap") { if (v < 1 || v > 12) return jsonReply(false, "Capacity must be 1 to 12"); maxCars = v; prefs.putInt("max", maxCars); return jsonReply(true, "Capacity is now " + String(maxCars)); }
+    if (arg1 == "buzz") { startBeeps(2); return jsonReply(true, "Buzzer test"); }
+    if (arg1 == "sim") { if (v >= 1 && v <= 3) simCmd = v; return jsonReply(true, "Running demo..."); }
+    if (arg1 == "demo") { demoCmd = 1; return jsonReply(true, "Full demo started."); }
+    if (arg1 == "restart") { carCount = 0; entriesToday = 0; exitsToday = 0; peakCars = 0; paidTotal = 0; refundTotal = 0; ticketNo = 0; for (int i = 0; i < MAXRES; i++) res[i] = Res(); evCount = 0; alCount = 0; hCount = 0; saveStats(); pendingGate = GATE_CLOSED; addEvent("Admin: everything restarted"); return jsonReply(true, "Everything restarted"); }
+  }
+  return jsonReply(false, "Unknown command");
 }
 
 void registerRoutes() {

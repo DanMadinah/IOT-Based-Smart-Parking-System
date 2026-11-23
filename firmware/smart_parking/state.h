@@ -16,6 +16,14 @@
   #include "config.example.h"
 #endif
 
+// Defaults if user's existing config.h doesn't define Firebase settings yet
+#ifndef FIREBASE_DB_URL
+  #define FIREBASE_DB_URL ""
+#endif
+#ifndef FIREBASE_AUTH
+  #define FIREBASE_AUTH ""
+#endif
+
 // ---------- Types ----------
 struct Event {
   time_t epoch;
