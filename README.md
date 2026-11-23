@@ -148,22 +148,22 @@ smart-parking-esp32/
 | ID | Scenario | Steps | Expected result | Result (pass/fail, n/n) | Notes |
 |---|---|---|---|---|---|
 | T1 | Paid car enters | Pay, tap "I'm at the gate", drive in | Gate opens, car counted, ticket shows Parked |✅ | |
-| T2 | Unpaid car | Trigger the entry sensor with no ticket | Gate stays shut, red LED blinks, 2 beeps, alert | | |
-| T3 | Paid but no tap | Pay, trigger the entry sensor, do not tap | Reminder, then alert after 8 s | | |
-| T4 | Lot full | Fill the lot, try again | Entry refused, red LED on | | |
-| T5 | Payment when full | Pay while the lot is full | "Lot full" message, no ticket | | |
-| T6 | Reservation expiry | Pay, wait 60 s | Space released, refund message | | |
-| T7 | Cancel | Pay, tap Cancel | Space released at once | | |
-| T8 | Wrong codes (secure mode) | 3 wrong codes | Ticket locked 30 s, LCD shows LOCKED | | |
-| T9 | Ticket cancelled | 6 wrong codes in total | Ticket cancelled, alert, 2-minute payment block | | |
-| T10 | Tailgating | Second car follows a paid car | Gate held open, alarm, alert | | |
-| T11 | Exit with ticket | Tap "I'm exiting", drive out | Gate opens, ticket marked Left, count -1 | | |
-| T12 | Exit without ticket | Trigger the exit sensor with no armed ticket | Gate stays shut, alert | | |
-| T13 | Wall warning | Move a car within 6 cm of a wall sensor | Buzzer sounds | | |
-| T14 | Gate obstruction | Block the gate while it closes | Gate re-opens | | |
-| T15 | Restart persistence | Press EN | Count, statistics and settings remain | | |
-| T16 | Hotspot fallback | Start with a wrong Wi-Fi name | ESP32 starts the DanMadinah-Lot hotspot | | |
-| T17 | Multi-car on one phone | Reserve four cars with different names | Four tickets listed; each exits separately | | |
+| T2 | Unpaid car | Trigger the entry sensor with no ticket | Gate stays shut, red LED blinks, 2 beeps, alert |✅ | |
+| T3 | Paid but no tap | Pay, trigger the entry sensor, do not tap | Reminder, then alert after 8 s |✅ | |
+| T4 | Lot full | Fill the lot, try again | Entry refused, red LED on |✅ | |
+| T5 | Payment when full | Pay while the lot is full | "Lot full" message, no ticket |✅ | |
+| T6 | Reservation expiry | Pay, wait 60 s | Space released, refund message |✅ | |
+| T7 | Cancel | Pay, tap Cancel | Space released at once |✅ | |
+| T8 | Wrong codes (secure mode) | 3 wrong codes | Ticket locked 30 s, LCD shows LOCKED |✅ | |
+| T9 | Ticket cancelled | 6 wrong codes in total | Ticket cancelled, alert, 2-minute payment block |✅ | |
+| T10 | Tailgating | Second car follows a paid car | Gate held open, alarm, alert |✅ | |
+| T11 | Exit with ticket | Tap "I'm exiting", drive out | Gate opens, ticket marked Left, count -1 |✅ | |
+| T12 | Exit without ticket | Trigger the exit sensor with no armed ticket | Gate stays shut, alert |✅ | |
+| T13 | Wall warning | Move a car within 6 cm of a wall sensor | Buzzer sounds |✅ | |
+| T14 | Gate obstruction | Block the gate while it closes | Gate re-opens |✅ | |
+| T15 | Restart persistence | Press EN | Count, statistics and settings remain | ✅| |
+| T16 | Hotspot fallback | Start with a wrong Wi-Fi name | ESP32 starts the DanMadinah-Lot hotspot |✅ | |
+| T17 | Multi-car on one phone | Reserve four cars with different names | Four tickets listed; each exits separately |✅ | |
 
 ## Test environment
 Date, location, Wi-Fi (home router or phone hotspot), number of phones connected, ESP32 board and firmware version.
