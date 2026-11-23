@@ -25,6 +25,41 @@ An ESP32-powered IoT smart parking management system featuring automated barrier
   - HTTP Basic Auth `/admin` panel with manual gate override, capacity adjustment, buzzer mute, CSV log export, and a built-in **45-second full hardware demo mode**.
 - **Zero-Cloud Reliability**: Connects to 2.4 GHz Wi-Fi with mDNS (`http://danmadinah.local`) and NTP timestamps, and automatically falls back to a local SoftAP hotspot (`192.168.4.1`) if Wi-Fi is unavailable.
 
+# Security Design
+
+## Goal
+Allow a vehicle into (and out of) a private, paid car park only when a valid, paid ticket exists and the driver is physically at the gate. Raise visible alerts when rules are broken.
+
+## Layers
+1. **On-site Wi-Fi.** The payment page is served by the ESP32 on the lot's local network.
+2. **Payment (demo).** A flat RM2 fee creates a ticket and reserves a space for 60 seconds. Unused or cancelled tickets are refunded (simulated).
+3. **Arrival confirmation.** The driver taps "I'm at the gate" within 20 s of reaching the entry sensor.
+4. **One-time LCD code (secure mode).** A random 4-digit code appears only on the LCD, is valid for 20 s and works once. It is accepted only together with the ticket's secret token held in the driver's browser.
+5. **Escalating response.** Per ticket: 3 wrong codes lock the ticket (30 s, then 2 min, then 5 min). 6 wrong codes in total cancel the ticket (demo refund), raise a security alert, and block that phone from paying for 2 minutes.
+
+## Detection and response
+| Event | Response |
+|---|---|
+| Unpaid car at the gate | Gate stays shut, red LED blinks, 2 beeps, alert |
+| Paid driver did not tap | Reminder first (1 beep, green LED blinks), alert after 8 s |
+| Lot full | Entry refused, red LED on, payment refused |
+| Tailgating (second car follows) | Gate held open, buzzer pulses, red LED blinks, alert; ends when the follower has passed or the admin clears it |
+| Exit without an approved ticket | Gate stays shut, red LED blinks, 2 beeps, alert; the admin can approve one exit |
+| Something blocks the closing gate | Gate re-opens |
+| Car too close to the wall | Buzzer warning below 6 cm |
+
+## Admin
+Password-protected (HTTP Basic Auth). Functions: manual gate control, approve an exit, reset and restart, capacity, simple or secure mode, mute the buzzer, demo mode, security alerts panel, CSV log, demo revenue.
+
+## Honest limits
+- Plain HTTP, no encryption. Use only on a private network.
+- Identity is the ticket and the phone, not the vehicle. A thief who has the driver's phone and the car passes the checks. A number-plate camera or RFID tag would address this.
+- Tickets and logs are held in RAM and reset on restart.
+- The IR sensors can misread dark or shiny cars and react to bright light and reflections.
+- Do not claim "unhackable" or "100% secure". Describe it as layered, defence in depth for a prototype.
+
+## Before any real deployment
+HTTPS, a real payment gateway handled off the ESP32, number-plate or RFID identification, permanent audit logs, and a systematic security test.
 ## Security Model: five layers
 
 | Layer | What it checks | What it stops |
@@ -54,6 +89,12 @@ flowchart LR
 | Overall system flow | Driver, payment and security flow |
 |---|---|
 | ![System flowchart](docs/images/flowchart_A_system.png) | ![Driver flowchart](docs/images/flowchart_B_driver_security.png) |
+
+<img width="3811" height="4616" alt="image" src="https://github.com/user-attachments/assets/9f81ebee-76ef-4fca-860a-a085358c1d4b" />
+
+<img width="2050" height="3749" alt="image" src="https://github.com/user-attachments/assets/d8369e1f-d8a4-4568-9f9f-c6f033e604cc" />
+
+
 ## Project Structure
 
 ```text
@@ -85,6 +126,33 @@ smart-parking-esp32/
 ├── LICENSE
 └── README.md
 ```
+
+# Test Plan and Results
+
+Fill in the **Result** and **Notes** columns after running each test (at least 5 repetitions each is a good target).
+
+| ID | Scenario | Steps | Expected result | Result (pass/fail, n/n) | Notes |
+|---|---|---|---|---|---|
+| T1 | Paid car enters | Pay, tap "I'm at the gate", drive in | Gate opens, car counted, ticket shows Parked | | |
+| T2 | Unpaid car | Trigger the entry sensor with no ticket | Gate stays shut, red LED blinks, 2 beeps, alert | | |
+| T3 | Paid but no tap | Pay, trigger the entry sensor, do not tap | Reminder, then alert after 8 s | | |
+| T4 | Lot full | Fill the lot, try again | Entry refused, red LED on | | |
+| T5 | Payment when full | Pay while the lot is full | "Lot full" message, no ticket | | |
+| T6 | Reservation expiry | Pay, wait 60 s | Space released, refund message | | |
+| T7 | Cancel | Pay, tap Cancel | Space released at once | | |
+| T8 | Wrong codes (secure mode) | 3 wrong codes | Ticket locked 30 s, LCD shows LOCKED | | |
+| T9 | Ticket cancelled | 6 wrong codes in total | Ticket cancelled, alert, 2-minute payment block | | |
+| T10 | Tailgating | Second car follows a paid car | Gate held open, alarm, alert | | |
+| T11 | Exit with ticket | Tap "I'm exiting", drive out | Gate opens, ticket marked Left, count -1 | | |
+| T12 | Exit without ticket | Trigger the exit sensor with no armed ticket | Gate stays shut, alert | | |
+| T13 | Wall warning | Move a car within 6 cm of a wall sensor | Buzzer sounds | | |
+| T14 | Gate obstruction | Block the gate while it closes | Gate re-opens | | |
+| T15 | Restart persistence | Press EN | Count, statistics and settings remain | | |
+| T16 | Hotspot fallback | Start with a wrong Wi-Fi name | ESP32 starts the DanMadinah-Lot hotspot | | |
+| T17 | Multi-car on one phone | Reserve four cars with different names | Four tickets listed; each exits separately | | |
+
+## Test environment
+Date, location, Wi-Fi (home router or phone hotspot), number of phones connected, ESP32 board and firmware version.
 
 ## Quick Start
 
