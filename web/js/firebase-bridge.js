@@ -35,7 +35,7 @@
 
     const deadline = Date.now() + 7000;
     while (Date.now() < deadline) {
-      await new Promise((r) => setTimeout(r, 450));
+      await new Promise((r) => setTimeout(r, 200));
       const resp = await fbGet('/parking/responses/' + id);
       if (resp && typeof resp === 'object') {
         fbDelete('/parking/responses/' + id);
