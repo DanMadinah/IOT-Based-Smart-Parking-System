@@ -1,13 +1,14 @@
 /**
  * Live Firebase Realtime Database bridge for Vercel / GitHub Pages.
  * Connects the public web dashboard directly to your physical ESP32 hardware
- * (zero demo simulator). Excluded from ESP32 PROGMEM builds automatically.
+ * with ESP32-verified Admin Login (zero passwords stored in frontend JS).
  */
 (function () {
   const dbUrl = (window.FIREBASE_DB_URL || '').replace(/\/+$/, '');
-  if (!dbUrl) return; // When empty or running directly on ESP32, use native /api/*
+  if (!dbUrl) return;
 
   const origFetch = window.fetch.bind(window);
+  const AUTH_KEY = 'sp_admin_pass_v1';
 
   async function fbGet(path) {
     const res = await origFetch(dbUrl + path + '.json', { cache: 'no-store' });
@@ -29,9 +30,15 @@
     try { await origFetch(dbUrl + path + '.json', { method: 'DELETE' }); } catch (e) {}
   }
 
-  async function sendCommand(action, arg1, arg2) {
+  async function sendCommand(action, arg1, arg2, auth) {
     const id = 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-    await fbPut('/parking/command', { id, action, arg1: String(arg1 || ''), arg2: String(arg2 || '') });
+    await fbPut('/parking/command', {
+      id,
+      action,
+      arg1: String(arg1 || ''),
+      arg2: String(arg2 || ''),
+      auth: String(auth || ''),
+    });
 
     const deadline = Date.now() + 7000;
     while (Date.now() < deadline) {
@@ -90,22 +97,23 @@
       }
 
       if (p.endsWith('/api/pay')) {
-        return jsonResp(await sendCommand('pay', q.get('method') || 'Card', q.get('name') || 'Car'));
+        return jsonResp(await sendCommand('pay', q.get('method') || 'Card', q.get('name') || 'Car', ''));
       }
       if (p.endsWith('/api/arm')) {
-        return jsonResp(await sendCommand('arm', q.get('t') || '', ''));
+        return jsonResp(await sendCommand('arm', q.get('t') || '', '', ''));
       }
       if (p.endsWith('/api/cancel')) {
-        return jsonResp(await sendCommand('cancel', q.get('t') || '', ''));
+        return jsonResp(await sendCommand('cancel', q.get('t') || '', '', ''));
       }
       if (p.endsWith('/api/code')) {
-        return jsonResp(await sendCommand('code', q.get('t') || '', q.get('c') || ''));
+        return jsonResp(await sendCommand('code', q.get('t') || '', q.get('c') || '', ''));
       }
       if (p.endsWith('/api/exitarm')) {
-        return jsonResp(await sendCommand('exitarm', q.get('t') || '', ''));
+        return jsonResp(await sendCommand('exitarm', q.get('t') || '', '', ''));
       }
       if (p.endsWith('/api/admin')) {
-        return jsonResp(await sendCommand('admin', q.get('cmd') || '', q.get('v') || '0'));
+        const pass = sessionStorage.getItem(AUTH_KEY) || '';
+        return jsonResp(await sendCommand('admin', q.get('cmd') || '', q.get('v') || '0', pass));
       }
     } catch (err) {
       return jsonResp({ ok: false, msg: 'ESP32 offline or Firebase unreachable' }, 503);
@@ -114,7 +122,81 @@
     return origFetch(input, init);
   };
 
+  function setupAdminGate() {
+    const isAdminPage = /\/admin(\.html)?$/i.test(location.pathname);
+    if (!isAdminPage) return;
+
+    const main = document.querySelector('main');
+    const saved = sessionStorage.getItem(AUTH_KEY);
+
+    function addLogoutButton() {
+      const h1 = document.querySelector('h1');
+      if (!h1 || document.getElementById('sp-logout')) return;
+      const btn = document.createElement('button');
+      btn.id = 'sp-logout';
+      btn.textContent = 'Log out';
+      btn.style.cssText = 'float:right;font-size:13px;padding:6px 12px;margin:0';
+      btn.onclick = () => {
+        sessionStorage.removeItem(AUTH_KEY);
+        location.reload();
+      };
+      h1.appendChild(btn);
+    }
+
+    if (saved) {
+      addLogoutButton();
+      return;
+    }
+
+    if (main) main.style.display = 'none';
+
+    const box = document.createElement('div');
+    box.id = 'sp-login-gate';
+    box.style.cssText =
+      'max-width:380px;margin:80px auto;padding:24px;border-radius:16px;' +
+      'background:var(--card);border:1px solid var(--line);box-shadow:0 12px 32px rgba(0,0,0,.15);';
+    box.innerHTML =
+      '<h2 style="margin:0 0 6px;font-size:20px;color:var(--text)">Admin Login</h2>' +
+      '<p class="sub" style="margin:0 0 16px">Sign in with your ESP32 admin credentials.</p>' +
+      '<form id="sp-login-form">' +
+      '<label class="sub" style="display:block;margin-bottom:4px">Username</label>' +
+      '<input id="sp-user" value="admin" required style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);margin-bottom:12px;font-size:15px">' +
+      '<label class="sub" style="display:block;margin-bottom:4px">Password</label>' +
+      '<input id="sp-pass" type="password" placeholder="Enter admin password" required autofocus style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);margin-bottom:14px;font-size:15px">' +
+      '<button type="submit" class="g" style="width:100%;margin:0">Sign in</button>' +
+      '<div id="sp-err" class="sub" style="margin-top:10px;color:var(--red)"></div>' +
+      '</form>' +
+      '<p class="sub" style="margin-top:16px"><a href="index.html">Back to dashboard</a></p>';
+
+    document.body.prepend(box);
+
+    document.getElementById('sp-login-form').onsubmit = async (e) => {
+      e.preventDefault();
+      const u = (document.getElementById('sp-user').value || '').trim();
+      const pw = document.getElementById('sp-pass').value || '';
+      const err = document.getElementById('sp-err');
+      if (u !== 'admin') {
+        err.textContent = 'Username must be admin';
+        return;
+      }
+      err.style.color = 'var(--sub)';
+      err.textContent = 'Verifying with ESP32...';
+      const r = await sendCommand('authcheck', '', '', pw);
+      if (r && r.ok) {
+        sessionStorage.setItem(AUTH_KEY, pw);
+        box.remove();
+        if (main) main.style.display = '';
+        addLogoutButton();
+      } else {
+        err.style.color = 'var(--red)';
+        err.textContent = (r && r.msg) || 'Invalid admin password';
+      }
+    };
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
+    setupAdminGate();
+
     const map = { '/': 'index.html', '/admin': 'admin.html', '/about': 'about.html' };
     document.querySelectorAll('a[href]').forEach((a) => {
       const h = a.getAttribute('href');

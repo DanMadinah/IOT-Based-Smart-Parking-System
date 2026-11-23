@@ -480,7 +480,11 @@ String allTicketsJson() {
   return j;
 }
 
-String executeRemoteCommand(const String& action, const String& arg1, const String& arg2) {
+String executeRemoteCommand(const String& action, const String& arg1, const String& arg2, const String& auth) {
+  if (action == "authcheck") {
+    if (auth == String(ADMIN_PASS)) return jsonReply(true, "Authenticated");
+    return jsonReply(false, "Invalid admin password");
+  }
   if (action == "pay") {
     if (freeSpaces() <= 0) return jsonReply(false, "Lot full, try again later");
     int slot = -1;
@@ -545,6 +549,7 @@ String executeRemoteCommand(const String& action, const String& arg1, const Stri
     return jsonReply(true, "Exit armed. Drive to the exit sensor now.");
   }
   if (action == "admin") {
+    if (auth != String(ADMIN_PASS)) return jsonReply(false, "Unauthorized: invalid admin password");
     int v = arg2.toInt();
     if (arg1 == "manual") { manualMode = (v == 1); addEvent(manualMode ? "Admin: manual mode ON" : "Admin: manual mode OFF"); return jsonReply(true, manualMode ? "Manual mode on." : "Manual mode off."); }
     if (arg1 == "gate") { if (!manualMode) return jsonReply(false, "Turn manual mode on first"); pendingGate = (v == 1) ? GATE_OPEN : GATE_CLOSED; return jsonReply(true, v == 1 ? "Opening gate..." : "Closing gate..."); }

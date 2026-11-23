@@ -103,10 +103,11 @@ void syncFirebase() {
       String action = jsonField(raw, "action");
       String arg1   = jsonField(raw, "arg1");
       String arg2   = jsonField(raw, "arg2");
+      String auth   = jsonField(raw, "auth");
 
       if (id.length() > 0 && id != lastHandledCmdId) {
         lastHandledCmdId = id;
-        String result = executeRemoteCommand(action, arg1, arg2);
+        String result = executeRemoteCommand(action, arg1, arg2, auth);
         firebaseSend("PUT", "/parking/responses/" + id, result);
         firebaseDelete("/parking/command");
         // Immediately push updated status & tickets so Vercel updates right away
