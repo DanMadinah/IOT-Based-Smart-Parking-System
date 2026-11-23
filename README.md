@@ -25,6 +25,18 @@ An ESP32-powered IoT smart parking management system featuring automated barrier
   - HTTP Basic Auth `/admin` panel with manual gate override, capacity adjustment, buzzer mute, CSV log export, and a built-in **45-second full hardware demo mode**.
 - **Zero-Cloud Reliability**: Connects to 2.4 GHz Wi-Fi with mDNS (`http://danmadinah.local`) and NTP timestamps, and automatically falls back to a local SoftAP hotspot (`192.168.4.1`) if Wi-Fi is unavailable.
 
+## Security Model: five layers
+
+| Layer | What it checks | What it stops |
+|---|---|---|
+| 1. On-site Wi-Fi | Only phones on the lot's network reach the payment page | Outsiders |
+| 2. Payment | No payment means no reservation | Free-riders |
+| 3. Arrival tap | "I'm at the gate" within 20 s | Tickets used at the wrong time |
+| 4. One-time LCD code (secure mode) | A 4-digit code shown only on the LCD, valid 20 s, used once | Someone who is not physically at the gate |
+| 5. Escalating response | 3 wrong codes lock the ticket (30 s, 2 min, 5 min); 6 cancel it and block that phone from paying for 2 min | Code guessing |
+
+Exit is protected too: each car has its own ticket and must be armed with "I'm exiting" before the gate opens for it.
+Details: [docs/SECURITY.md](docs/SECURITY.md)
 ## System Architecture
 
 ```mermaid
@@ -37,6 +49,11 @@ flowchart LR
     ESP32 --> Signals["Green/Red LEDs + Buzzer"]
 ```
 
+## System Flowcharts
+
+| Overall system flow | Driver, payment and security flow |
+|---|---|
+| ![System flowchart](docs/images/flowchart_A_system.png) | ![Driver flowchart](docs/images/flowchart_B_driver_security.png) |
 ## Project Structure
 
 ```text
@@ -76,17 +93,29 @@ smart-parking-esp32/
 3. **Flash the ESP32**: Open `firmware/smart_parking/smart_parking.ino` in Arduino IDE, install `LiquidCrystal I2C` and `ESP32Servo`, and click **Upload**. See [docs/SETUP.md](docs/SETUP.md) for full instructions.
 4. **Open the dashboard**: Visit `http://danmadinah.local` (or the IP shown on the LCD / Serial Monitor).
 
+## Known Limitations
+- Payment is a **simulation** (no real money, no payment gateway).
+- The real dashboard is served by the ESP32 and works **only on the local Wi-Fi**. The public demo page uses simulated data.
+- The admin page uses plain HTTP Basic Auth (acceptable on a private network, not on the open internet).
+- The event log and chart live in RAM and reset on restart. Car count, statistics and settings persist.
+- The system verifies payment, presence and tickets, **not which vehicle** is at the gate (a number-plate camera is future work).
+- The ESP32 web server answers one request at a time, so it suits a few phones, not a crowd.
+
+## Testing and Lessons Learned
+- [Test plan and results](docs/TESTING.md)
+- [Lessons learned](docs/LESSONS_LEARNED.md)
 ## Documentation
 
 - [Hardware & Wiring Guide](docs/WIRING.md)
 - [Setup & Flashing Guide](docs/SETUP.md)
 - [REST API Reference](docs/API.md)
 
-## Author
+## Authors
+- **Muhammad Abdullahi Bukar**
+- **Supervisor:** Mohd Zaki Shahabuddin, Universiti Islam Antarabangsa Tuanku Syed Sirajuddin (UNISIRAJ)
 
-- **Student:** Muhammad Abdullahi Bukar
-- **Supervisor:** Mohd Zaki Shahabuddin
-
+## Recognition
+Bronze medal at UniSID (UNISIRAJ International Innovation, Invention and Design).
 ## License
 
 This project is licensed under the MIT License — see [LICENSE](LICENSE) for details.
