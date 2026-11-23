@@ -6,6 +6,8 @@
   const isDemo =
     location.protocol === 'file:' ||
     location.hostname.endsWith('github.io') ||
+    location.hostname.endsWith('vercel.app') ||
+    location.hostname.endsWith('netlify.app') ||
     location.hostname === 'localhost' ||
     location.hostname === '127.0.0.1' ||
     new URLSearchParams(location.search).get('demo') === '1';
