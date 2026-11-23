@@ -64,17 +64,22 @@
       if (p.endsWith('/api/status')) {
         const s = await fbGet('/parking/status');
         if (!s) throw new Error('No ESP32 status yet');
+        s.warns = Array.isArray(s.warns) ? s.warns : [];
+        s.events = Array.isArray(s.events) ? s.events : [];
         return jsonResp(s);
       }
 
       if (p.endsWith('/api/history')) {
-        const h = await fbGet('/parking/history');
-        return jsonResp(h || { max: 4, step: 20, h: [] });
+        const h = (await fbGet('/parking/history')) || { max: 4, step: 20, h: [] };
+        h.h = Array.isArray(h.h) ? h.h : [];
+        return jsonResp(h);
       }
 
       if (p.endsWith('/api/alerts')) {
-        const a = await fbGet('/parking/alerts');
-        return jsonResp(a || { c: [0, 0, 0, 0, 0, 0], wrong: 0, paid: 0, ref: 0, list: [] });
+        const a = (await fbGet('/parking/alerts')) || { c: [0, 0, 0, 0, 0, 0], wrong: 0, paid: 0, ref: 0, list: [] };
+        a.c = Array.isArray(a.c) ? a.c : [0, 0, 0, 0, 0, 0];
+        a.list = Array.isArray(a.list) ? a.list : [];
+        return jsonResp(a);
       }
 
       if (p.endsWith('/api/tickets')) {
