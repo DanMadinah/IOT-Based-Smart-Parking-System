@@ -10,7 +10,7 @@
   const origFetch = window.fetch.bind(window);
 
   async function fbGet(path) {
-    const res = await origFetch(dbUrl + path + '.json?_=' + Date.now(), { cache: 'no-store' });
+    const res = await origFetch(dbUrl + path + '.json', { cache: 'no-store' });
     if (!res.ok) throw new Error('Firebase read failed');
     return await res.json();
   }
