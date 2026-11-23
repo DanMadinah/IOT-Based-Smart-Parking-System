@@ -147,7 +147,7 @@ smart-parking-esp32/
 
 | ID | Scenario | Steps | Expected result | Result (pass/fail, n/n) | Notes |
 |---|---|---|---|---|---|
-| T1 | Paid car enters | Pay, tap "I'm at the gate", drive in | Gate opens, car counted, ticket shows Parked | | |
+| T1 | Paid car enters | Pay, tap "I'm at the gate", drive in | Gate opens, car counted, ticket shows Parked |✅ | |
 | T2 | Unpaid car | Trigger the entry sensor with no ticket | Gate stays shut, red LED blinks, 2 beeps, alert | | |
 | T3 | Paid but no tap | Pay, trigger the entry sensor, do not tap | Reminder, then alert after 8 s | | |
 | T4 | Lot full | Fill the lot, try again | Entry refused, red LED on | | |
