@@ -32,7 +32,7 @@ def inline_assets(html_path: Path) -> str:
 
     def replace_js(match: re.Match) -> str:
         src = match.group(1)
-        if src.endswith(("demo-mock.js", "firebase-config.js", "firebase-bridge.js")):
+        if src.endswith(("firebase-config.js", "firebase-bridge.js")):
             return ""
         js_path = (html_path.parent / src).resolve()
         js = js_path.read_text(encoding="utf-8").strip()
