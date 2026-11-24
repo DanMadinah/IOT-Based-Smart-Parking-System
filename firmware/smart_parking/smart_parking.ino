@@ -164,10 +164,11 @@ void setup() {
     delay(3000);
   } else {
     apMode = true;
-    WiFi.mode(WIFI_AP_STA);
+    WiFi.disconnect(true);
+    delay(100);
+    WiFi.mode(WIFI_AP);
     WiFi.softAP(AP_NAME, AP_PASS);
-    WiFi.begin(WIFI_NAME, WIFI_PASS);
-    Serial.println("No home Wi-Fi yet. Hotspot started (will auto-reconnect when Wi-Fi appears).");
+    Serial.println("No home Wi-Fi. Hotspot started.");
     Serial.print("Join Wi-Fi '");
     Serial.print(AP_NAME);
     Serial.print("' (password ");
@@ -398,22 +399,12 @@ void loop() {
   checkHealth();
   sampleHistory();
 
-  // Auto-recover Wi-Fi connection if it dropped or booted into Hotspot mode
+  // Auto-reconnect only if we started in Wi-Fi STA mode (keep Hotspot mode rock-solid)
   static unsigned long lastWifiRetry = 0;
-  if (WiFi.status() == WL_CONNECTED) {
-    if (apMode) {
-      apMode = false;
-      WiFi.softAPdisconnect(true);
-      WiFi.mode(WIFI_STA);
-      configTime(8 * 3600, 0, "pool.ntp.org", "time.google.com");
-      MDNS.begin(MDNS_HOST);
-      Serial.println("Wi-Fi recovered! IP: " + WiFi.localIP().toString());
-      addEvent("Wi-Fi connected: cloud sync active");
-    }
-  } else if (millis() - lastWifiRetry >= 20000) {
+  if (!apMode && WiFi.status() != WL_CONNECTED && millis() - lastWifiRetry >= 15000) {
     lastWifiRetry = millis();
-    Serial.println("Retrying Wi-Fi connection...");
-    WiFi.begin(WIFI_NAME, WIFI_PASS);
+    Serial.println("Wi-Fi dropped. Reconnecting...");
+    WiFi.reconnect();
   }
 
   syncFirebase();
