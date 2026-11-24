@@ -2,9 +2,6 @@
 
 An ESP32-powered IoT smart parking management system featuring automated barrier gate control, ticketed entry/exit verification, tailgating & wall-proximity alerts, NVS persistent analytics, and a real-time bilingual (English / Bahasa Melayu) web dashboard hosted directly on the microcontroller.
 
-> **Live Interactive Demo:** [Try the web dashboard in your browser →](https://danmadinah.github.io/IOT-Based-Smart-Parking-System/)  
-> *(Runs an in-browser ESP32 simulator so you can test reservations, gate animations, Secure LCD codes, and the Admin panel without hardware.)*
-
 ## Prototype & Live Dashboard
 
 | Hardware Prototype | Live Dashboard & Tickets | Parking Spaces & Sensors | Analytics & Event Log |
