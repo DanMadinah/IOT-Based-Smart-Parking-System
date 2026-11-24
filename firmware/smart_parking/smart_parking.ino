@@ -100,6 +100,27 @@ unsigned long alertFlashUntil = 0;
 int badTicketless = 0;
 unsigned long badWin = 0;
 
+void startHotspot() {
+  apMode = true;
+  WiFi.disconnect(false);
+  delay(200);
+  WiFi.mode(WIFI_AP);
+  delay(200);
+  bool ok = WiFi.softAP(AP_NAME, AP_PASS, 1);
+  Serial.println(ok ? "Hotspot started successfully." : "Hotspot start FAILED!");
+  Serial.print("Join Wi-Fi '");
+  Serial.print(AP_NAME);
+  Serial.print("' (password ");
+  Serial.print(AP_PASS);
+  Serial.print(") then open http://");
+  Serial.println(WiFi.softAPIP());
+  lcd->setCursor(0, 0);
+  lcd->print(pad16("Hotspot mode"));
+  lcd->setCursor(0, 1);
+  lcd->print(pad16(WiFi.softAPIP().toString()));
+  delay(3000);
+}
+
 // ---------- Setup ----------
 void setup() {
   Serial.begin(115200);
@@ -163,22 +184,7 @@ void setup() {
     lcd->print(pad16(WiFi.localIP().toString()));
     delay(3000);
   } else {
-    apMode = true;
-    WiFi.disconnect(true);
-    delay(100);
-    WiFi.mode(WIFI_AP);
-    WiFi.softAP(AP_NAME, AP_PASS);
-    Serial.println("No home Wi-Fi. Hotspot started.");
-    Serial.print("Join Wi-Fi '");
-    Serial.print(AP_NAME);
-    Serial.print("' (password ");
-    Serial.print(AP_PASS);
-    Serial.println(") then open http://192.168.4.1");
-    lcd->setCursor(0, 0);
-    lcd->print(pad16("Hotspot mode"));
-    lcd->setCursor(0, 1);
-    lcd->print(pad16("192.168.4.1"));
-    delay(3500);
+    startHotspot();
   }
 
   registerRoutes();
@@ -399,12 +405,24 @@ void loop() {
   checkHealth();
   sampleHistory();
 
-  // Auto-reconnect only if we started in Wi-Fi STA mode (keep Hotspot mode rock-solid)
-  static unsigned long lastWifiRetry = 0;
-  if (!apMode && WiFi.status() != WL_CONNECTED && millis() - lastWifiRetry >= 15000) {
-    lastWifiRetry = millis();
-    Serial.println("Wi-Fi dropped. Reconnecting...");
-    WiFi.reconnect();
+  // If Wi-Fi drops while running in STA mode, retry once and fall back to Hotspot after 25s
+  static unsigned long wifiLostAt = 0;
+  static bool retriedOnce = false;
+  if (!apMode) {
+    if (WiFi.status() == WL_CONNECTED) {
+      wifiLostAt = 0;
+      retriedOnce = false;
+    } else {
+      if (wifiLostAt == 0) wifiLostAt = millis();
+      if (!retriedOnce && millis() - wifiLostAt >= 8000) {
+        retriedOnce = true;
+        Serial.println("Wi-Fi dropped. Reconnecting...");
+        WiFi.reconnect();
+      } else if (millis() - wifiLostAt >= 25000) {
+        Serial.println("Wi-Fi unavailable for 25s -> switching to Hotspot mode.");
+        startHotspot();
+      }
+    }
   }
 
   syncFirebase();
