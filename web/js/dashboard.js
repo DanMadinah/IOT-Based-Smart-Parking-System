@@ -154,17 +154,25 @@ function okAnim() {
 }
 
 $('payBtn').onclick = async () => {
+  const btn = $('payBtn');
+  if (btn.disabled) return;
+  btn.disabled = true;
   $('rmsg').textContent = T('proc');
   const nm = ($('cname').value || '').trim() || ('Car ' + (tickets.length + 1));
-  const r = await api('/api/pay?method=' + encodeURIComponent($('method').value) + '&name=' + encodeURIComponent(nm));
-  $('rmsg').textContent = r.ok ? '' : (r.msg || '');
-  if (!r.ok) toast(r.msg || 'Payment failed');
-  if (r.ok) {
-    tickets.push({ t: r.token, n: nm });
-    save();
-    $('cname').value = '';
-    okAnim();
-    refreshTickets();
+  try {
+    const r = await api('/api/pay?method=' + encodeURIComponent($('method').value) + '&name=' + encodeURIComponent(nm));
+    $('rmsg').textContent = r.ok ? '' : (r.msg || '');
+    if (!r.ok) toast(r.msg || 'Payment failed');
+    if (r.ok) {
+      tickets.push({ t: r.token, n: nm, ticket: r.ticket || 'Ticket', createdAt: Date.now(), misses: 0 });
+      save();
+      $('cname').value = '';
+      okAnim();
+      refreshTickets();
+      setTimeout(refreshTickets, 1200);
+    }
+  } finally {
+    btn.disabled = false;
   }
 };
 
@@ -173,6 +181,7 @@ async function act(kind, t) {
   const r = await api('/api/' + kind + '?t=' + t);
   $('rmsg').textContent = r.msg || '';
   refreshTickets();
+  setTimeout(refreshTickets, 1200);
 }
 
 async function sendCode(t) {
@@ -181,6 +190,7 @@ async function sendCode(t) {
   $('rmsg').textContent = r.msg || '';
   if (el) el.value = '';
   refreshTickets();
+  setTimeout(refreshTickets, 1200);
 }
 
 function line(x) {
@@ -216,18 +226,54 @@ function line(x) {
 let lastTix = '';
 async function refreshTickets() {
   const box = $('tickets');
-  if (!tickets.length) { box.innerHTML = ''; return; }
+  if (!tickets.length) { box.innerHTML = ''; lastTix = ''; return; }
   if (document.activeElement && document.activeElement.tagName === 'INPUT' && box.contains(document.activeElement)) return;
   const r = await api('/api/tickets?t=' + tickets.map(x => x.t).join(','));
   if (!Array.isArray(r)) return;
+  const liveMap = new Map();
+  r.forEach(x => liveMap.set(x.t, x));
+  const now = Date.now();
+  const display = [];
+  let changed = false;
+  const kept = [];
+  tickets.forEach(x => {
+    const found = liveMap.get(x.t);
+    if (found) {
+      x.misses = 0;
+      kept.push(x);
+      display.push(found);
+    } else {
+      const age = now - (x.createdAt || 0);
+      x.misses = (x.misses || 0) + 1;
+      // Grace period: never drop a newly paid ticket while ESP32/Firebase syncs,
+      // and require 4 consecutive misses (~10s) before pruning old tickets.
+      if (age < 25000 || x.misses < 4) {
+        kept.push(x);
+        if (age < 25000) {
+          display.push({
+            t: x.t,
+            n: x.n || 'Car',
+            ticket: x.ticket || 'Ticket',
+            state: 'reserved',
+            left: Math.max(0, Math.round((300000 - age) / 1000)),
+            atgate: false,
+            locked: 0,
+            needCode: false,
+          });
+        }
+      } else {
+        changed = true;
+      }
+    }
+  });
+  if (changed || kept.length !== tickets.length) {
+    tickets = kept;
+    save();
+  }
   const fin = ['left', 'used', 'expired', 'cancelled'];
-  r.sort((a, b) => fin.includes(a.state) - fin.includes(b.state));
-  const live = new Set();
+  display.sort((a, b) => fin.includes(a.state) - fin.includes(b.state));
   let h = '';
-  r.forEach(x => { live.add(x.t); h += line(x); });
-  const before = tickets.length;
-  tickets = tickets.filter(x => live.has(x.t));
-  if (tickets.length !== before) save();
+  display.forEach(x => { h += line(x); });
   if (h !== lastTix) { box.innerHTML = h; lastTix = h; }
 }
 let tm2 = setInterval(refreshTickets, 2500);

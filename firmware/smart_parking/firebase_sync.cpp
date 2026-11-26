@@ -108,10 +108,11 @@ void syncFirebase() {
       if (id.length() > 0 && id != lastHandledCmdId) {
         lastHandledCmdId = id;
         String result = executeRemoteCommand(action, arg1, arg2, auth);
+        // Push updated status & tickets BEFORE replying so the web dashboard
+        // immediately sees the new ticket state when it polls /parking/tickets.
+        pushLiveStateNow();
         firebaseSend("PUT", "/parking/responses/" + id, result);
         firebaseDelete("/parking/command");
-        // Immediately push updated status & tickets so Vercel updates right away
-        pushLiveStateNow();
         return;
       }
     }

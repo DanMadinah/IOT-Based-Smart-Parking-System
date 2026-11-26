@@ -9,6 +9,7 @@
 
   const origFetch = window.fetch.bind(window);
   const AUTH_KEY = 'sp_admin_pass_v1';
+  const pendingTickets = {};
 
   async function fbGet(path) {
     const res = await origFetch(dbUrl + path + '.json', { cache: 'no-store' });
@@ -92,12 +93,44 @@
       if (p.endsWith('/api/tickets')) {
         const all = (await fbGet('/parking/tickets')) || {};
         const ids = (q.get('t') || '').split(',').filter(Boolean);
-        const list = ids.map((id) => all[id]).filter(Boolean);
+        const now = Date.now();
+        const list = ids
+          .map((id) => {
+            if (all[id]) {
+              delete pendingTickets[id];
+              return all[id];
+            }
+            const pTix = pendingTickets[id];
+            if (pTix && now - pTix._at < 30000) {
+              return pTix.data;
+            }
+            return null;
+          })
+          .filter(Boolean);
         return jsonResp(list);
       }
 
       if (p.endsWith('/api/pay')) {
-        return jsonResp(await sendCommand('pay', q.get('method') || 'Card', q.get('name') || 'Car', ''));
+        const method = q.get('method') || 'Card';
+        const nm = q.get('name') || 'Car';
+        const resp = await sendCommand('pay', method, nm, '');
+        if (resp && resp.ok && resp.token) {
+          pendingTickets[resp.token] = {
+            _at: Date.now(),
+            data: {
+              t: resp.token,
+              n: nm,
+              ticket: resp.ticket || 'Ticket',
+              state: 'reserved',
+              left: 300,
+              total: 300,
+              locked: 0,
+              atgate: false,
+              needCode: false,
+            },
+          };
+        }
+        return jsonResp(resp);
       }
       if (p.endsWith('/api/arm')) {
         return jsonResp(await sendCommand('arm', q.get('t') || '', '', ''));
